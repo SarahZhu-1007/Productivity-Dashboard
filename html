@@ -1,9 +1,4 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>宜家苏州商场人员效率看板</title>
+ <title>宜家苏州商场人员效率看板</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- ECharts -->
@@ -792,29 +787,26 @@
         try {
           await window.genie.storage.command('set', key, value);
           return;
-        } catch (e) { console.warn("Genie storage set failed, falling back", e); }
+        } catch (e) { console.error("Genie storage set error:", e); }
       }
-      localStorage.setItem(key, JSON.stringify(value));
     },
 
     async get(key) {
       if (this.isGenie()) {
         try {
           const val = await window.genie.storage.command('get', key);
-          if (val !== null) return val;
-        } catch (e) { console.warn("Genie storage get failed, falling back", e); }
+          return val;
+        } catch (e) { console.error("Genie storage get error:", e); }
       }
-      const local = localStorage.getItem(key);
-      return local ? JSON.parse(local) : null;
+      return null;
     },
 
     async del(key) {
       if (this.isGenie()) {
         try {
           await window.genie.storage.command('del', key);
-        } catch (e) {}
+        } catch (e) { console.error("Genie storage del error:", e); }
       }
-      localStorage.removeItem(key);
     }
   };
 
@@ -824,9 +816,9 @@
   const PAGE_STORAGE_KEY = 'suzhou_eff_active_page_v1';
   let currentPage = 'module1';
 
-  function switchPage(pageId) {
+  async function switchPage(pageId) {
     currentPage = pageId;
-    localStorage.setItem(PAGE_STORAGE_KEY, pageId);
+    await EfficiencyStorage.set(PAGE_STORAGE_KEY, pageId);
 
     // Toggle pages
     ['module1', 'module2', 'module3', 'module4'].forEach(id => {
@@ -928,9 +920,9 @@
   const STORAGE_KEY_WEEK_MAP = 'suzhou_eff_date_week_map_v2';
   let dateWeekMap = {};
 
-  function initDateWeekMap() {
+  async function initDateWeekMap() {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_WEEK_MAP);
+      const stored = await EfficiencyStorage.get(STORAGE_KEY_WEEK_MAP);
       dateWeekMap = stored ? JSON.parse(stored) : DEFAULT_DATE_WEEK_MAP;
     } catch(e) {
       dateWeekMap = DEFAULT_DATE_WEEK_MAP;
@@ -1193,9 +1185,9 @@
     return 0;
   }
 
-  function initDateWeekdayMap() {
+  async function initDateWeekdayMap() {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_WEEKDAY_MAP);
+      const stored = await EfficiencyStorage.get(STORAGE_KEY_WEEKDAY_MAP);
       dateWeekdayMap = stored ? JSON.parse(stored) : DEFAULT_DATE_WEEKDAY_MAP;
     } catch(e) {
       dateWeekdayMap = DEFAULT_DATE_WEEKDAY_MAP;
@@ -1948,12 +1940,12 @@
     reader.readAsArrayBuffer(file);
   }
 
-  function resetModule2Defaults() {
+  async function resetModule2Defaults() {
     if (confirm('是否确定重置为初始示范数据？')) {
       hoursData = DEFAULT_HOURS_DATA;
       driverData = DEFAULT_DRIVER_DATA;
-      localStorage.removeItem(STORAGE_KEY_HOURS);
-      localStorage.removeItem(STORAGE_KEY_DRIVER);
+      await EfficiencyStorage.del(STORAGE_KEY_HOURS);
+      await EfficiencyStorage.del(STORAGE_KEY_DRIVER);
       updateUploadStatusIndicators();
       initDatePickers();
       applyDateFilter();
@@ -2077,8 +2069,8 @@
     </tr>`).join('');
   }
 
-  function loadMonthlyStore() {
-    try { monthlyStore = JSON.parse(localStorage.getItem(MONTHLY_KEY) || '{}') || {}; }
+  async function loadMonthlyStore() {
+    try { monthlyStore = await EfficiencyStorage.get(MONTHLY_KEY) || {}; }
     catch(e) { monthlyStore = {}; }
   }
 
@@ -2105,9 +2097,9 @@
     }));
   }
 
-  function saveMonthlyData(show) {
+  async function saveMonthlyData(show) {
     monthlyStore[currentMonth()] = collectMonthly();
-    localStorage.setItem(MONTHLY_KEY, JSON.stringify(monthlyStore));
+    await EfficiencyStorage.set(MONTHLY_KEY, monthlyStore);
     const el = document.getElementById('monthlySaveStatus');
     if (el) {
       el.textContent = (show ? '已保存 ' : '已自动暂存 ') + currentMonth() + ' 的数据，可切换月份或继续修改。';
@@ -2130,9 +2122,9 @@
     }
   }
 
-  function clearMonthlyData() {
+  async function clearMonthlyData() {
     delete monthlyStore[currentMonth()];
-    localStorage.setItem(MONTHLY_KEY, JSON.stringify(monthlyStore));
+    await EfficiencyStorage.set(MONTHLY_KEY, JSON.stringify(monthlyStore));
     fillMonthly();
     const el = document.getElementById('monthlySaveStatus');
     if (el) {
@@ -2205,7 +2197,7 @@
   }
 
   const STORAGE_KEY = 'suzhou_efficiency_dashboard_inputs_v1';
-  function saveData(show) {
+  async function saveData(show) {
     const data = {
       updateTime: document.getElementById('updateTime')?.value || '',
       rows: rows.map((r, i) => ({
@@ -2213,7 +2205,7 @@
         labor: document.getElementById('labor-' + i)?.value || ''
       }))
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    await EfficiencyStorage.set(STORAGE_KEY, data);
     const el = document.getElementById('saveStatus');
     if (el) {
       el.textContent = show ? '已保存，可继续修改。' : '已自动暂存。';
@@ -2227,9 +2219,9 @@
     saveTimer = setTimeout(() => saveData(false), 250);
   }
 
-  function loadSavedData() {
+  async function loadSavedData() {
     try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      const data = await EfficiencyStorage.get(STORAGE_KEY);
       if (!data) return;
       if (document.getElementById('updateTime')) document.getElementById('updateTime').value = data.updateTime || '';
       (data.rows || []).forEach((r, i) => {
@@ -2240,11 +2232,11 @@
       });
       const el = document.getElementById('saveStatus');
       if (el) el.textContent = '已载入上次保存的数据，可继续修改。';
-    } catch(e) {}
+    } catch(e) { console.error("loadSavedData Error:", e); }
   }
 
-  function clearSavedData() {
-    localStorage.removeItem(STORAGE_KEY);
+  async function clearSavedData() {
+    await EfficiencyStorage.del(STORAGE_KEY);
     rows.forEach((r, i) => {
       document.getElementById('sales-' + i).value = '';
       document.getElementById('labor-' + i).value = '';
@@ -2278,15 +2270,15 @@
     // Init Module 1 Tables
     renderMonthOptions();
     renderMonthlyTable();
-    loadMonthlyStore();
+    await loadMonthlyStore();
     fillMonthly();
     renderTable();
-    loadSavedData();
+    await loadSavedData();
     updateAll();
 
     // Restore last visited tab or default to module2
-    const lastPage = localStorage.getItem(PAGE_STORAGE_KEY) || 'module2';
-    switchPage(lastPage);
+    const lastPage = await EfficiencyStorage.get(PAGE_STORAGE_KEY) || 'module2';
+    await switchPage(lastPage);
   });
 
   window.addEventListener('resize', () => {
